@@ -15,6 +15,9 @@ export const state = {
     selectedUser: 0,
     modalOffer: false,
     archivedMessages: false,
+    visibleSidebar: false,
+    bubbles: [],
+    modalError: false,
 };
 
 export const getters = {
@@ -30,6 +33,9 @@ export const getters = {
     getSelectedUser: state => state.selectedUser,
     getModalOffer: state => state.modalOffer,
     getArchivedMessages: state => state.archivedMessages,
+    getVisibleSidebar: state => state.visibleSidebar,
+    getBubbles: state => state.bubbles,
+    getModalError: state => state.modalError,
 };
 
 export const mutations = {
@@ -60,8 +66,14 @@ export const mutations = {
         let arrayFind = [];
 
         payload.forEach(item => {
-            const userId = item.last_message.user_id;
-            const find = item.participants.filter(user => user.user_id === userId);
+            let userId, find;
+            if (item.last_message) {
+                userId = item.last_message.user_id;
+                find = item.participants.filter(user => user.user_id === userId);
+            } else {
+                userId = item.user_id;
+                find = item.participants.filter(user => user.user_id !== userId);
+            }
 
             arrayFind = find.map(item => {
                 const { name, full_name, ...data } = item.user;
@@ -72,10 +84,20 @@ export const mutations = {
                     ...data
                 };
             });
-            state.listConversation.push({
-                user: arrayFind[0],
-                ...item.last_message
-            });
+
+            if (item.last_message) {
+                state.listConversation.push({
+                    user: arrayFind[0],
+                    ...item.last_message
+                });
+            } else {
+                state.listConversation.push({
+                    conversation_id: item.id,
+                    user: arrayFind[0],
+                    ...item.last_message
+                });
+            }
+
         });
 
         if (state.listConversation[state.selectedUser] !== undefined) state.conversationId = state.listConversation[state.selectedUser].conversation_id;
@@ -115,6 +137,40 @@ export const mutations = {
 
     toggleArchivedMessages(state, payload) {
         state.archivedMessages = payload;
+    },
+
+    toggleVisibleSidebar(state, payload) {
+        state.visibleSidebar = payload;
+    },
+
+    toggleModalError(state, payload) {
+        state.modalError = payload;
+    },
+
+    toggleBubbles(state, payload) {
+        const loggedUserId = this.getters["auth/user"].id;
+        const findParticipants = payload.participants.filter(user => user.user_id !== loggedUserId)[0];
+        const { user, conversation_id } = findParticipants;
+        const findExistsUser = state.bubbles.find(item => item.id === user.id);
+
+        const obj = {
+            conversation_id,
+            ...user
+        };
+
+        if (state.bubbles.length) {
+            if (findExistsUser === undefined) state.bubbles.push(obj);
+        } else {
+            state.bubbles.push(obj);
+        }
+
+        if (state.bubbles.length > 3) {
+            state.bubbles.shift();
+        }
+    },
+
+    removeBubbles(state, payload) {
+        state.bubbles.splice(payload, 1);
     },
 
     showToast(state, payload) {
